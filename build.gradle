@@ -1,9 +1,14 @@
 plugins {
+    id 'application'
     id 'java'
 }
 
 group 'org.example'
 version '1.0-SNAPSHOT'
+
+application {
+    mainClassName = project.hasProperty("mainClass") ? project.getProperty("mainClass") : "NULL"
+}
 
 repositories {
     mavenCentral()
