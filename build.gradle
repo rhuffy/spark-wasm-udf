@@ -6,8 +6,10 @@ plugins {
 group 'org.example'
 version '1.0-SNAPSHOT'
 
+applicationDefaultJvmArgs = ['-Dos.arch=amd64']
+
 application {
-    mainClassName = project.hasProperty("mainClass") ? project.getProperty("mainClass") : "NULL"
+    mainClassName = "Entrypoint"
 }
 
 repositories {
@@ -16,7 +18,7 @@ repositories {
 
 dependencies {
     implementation 'org.apache.spark:spark-sql_2.12:3.2.0'
-    implementation "io.github.kawamuray.wasmtime:wasmtime-java:0.6.0"
+    implementation files('libs/wasmer-jni-amd64-darwin-0.3.0.jar')
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.7.0'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.7.0'
 }
