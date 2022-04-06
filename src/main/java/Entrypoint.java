@@ -1,7 +1,3 @@
-import io.github.kawamuray.wasmtime.Func;
-import io.github.kawamuray.wasmtime.Instance;
-import io.github.kawamuray.wasmtime.Module;
-import io.github.kawamuray.wasmtime.Store;
 import io.github.kawamuray.wasmtime.WasmFunctions;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
@@ -10,8 +6,6 @@ import org.apache.spark.sql.api.java.UDF2;
 import org.apache.spark.sql.expressions.UserDefinedFunction;
 import org.apache.spark.sql.types.DataTypes;
 
-import static io.github.kawamuray.wasmtime.WasmValType.I64;
-import static java.util.Collections.emptyList;
 import static org.apache.spark.sql.functions.col;
 import static org.apache.spark.sql.functions.udf;
 
@@ -20,7 +14,7 @@ public class Entrypoint {
     public static void main(String[] args) throws Exception {
         SparkSession spark = SparkSession
                 .builder()
-                .master("spark://amdci2.csail.mit.edu:7077")
+                .master("local")
                 .appName("Java Spark SQL basic example")
                 .getOrCreate();
 
@@ -29,17 +23,13 @@ public class Entrypoint {
         df.show();
         df.printSchema();
 
+        WasmFunctionSupplier.init("udf.wat", "add");
+
         UserDefinedFunction myUdf = udf(new UDF2<Long, Long, Long>() {
             @Override
             public Long call(Long a, Long b) throws Exception {
-                Store<Void> store = Store.withoutData();
-                Module module = Module.fromFile(store.engine(), "udf.wat");
-                Instance instance = new Instance(store, module, emptyList());
-                Func fun = instance.getFunc(store, "add").get();
-                WasmFunctions.Function2<Long, Long, Long> add = WasmFunctions.func(
-                        store, fun, I64, I64, I64);
-
-                return add.call(a, b);
+                WasmFunctions.Function2<Long, Long, Long> func = WasmFunctionSupplier.get();
+                return func.call(a, b);
             }
         }, DataTypes.LongType);
 
