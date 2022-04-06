@@ -5,7 +5,9 @@ import org.apache.spark.sql.api.java.UDF2;
 import org.apache.spark.sql.expressions.UserDefinedFunction;
 import org.apache.spark.sql.types.DataTypes;
 import org.apache.spark.sql.types.StructType;
+import org.wasmer.Module;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.apache.spark.sql.functions.col;
@@ -29,13 +31,15 @@ public class Entrypoint {
         df.show();
         df.printSchema();
 
-        WasmFunctionSupplier.init(Path.of("functions/c/udf_c.wasm"), "add");
-        //        WasmFunctionSupplier.init(Path.of("udf.wat"), "add");
+        byte[] wasmBytes = new Module(Files.readAllBytes(Path.of("udf.wat"))).serialize();
 
         UserDefinedFunction myUdf = udf(
-                (UDF2<Integer, Integer, Integer>)
-                        (a, b) -> (Integer) WasmFunctionSupplier.get().apply(a, b)[0],
-                DataTypes.IntegerType);
+                (UDF2<Long, Long, Long>)
+                        (a, b) -> {
+                                Module module = Module.deserialize(wasmBytes);
+                                return (Long) module.instantiate().exports.getFunction("add").apply(a, b)[0];
+                        },
+                DataTypes.LongType);
 
         df.select(col("name"), myUdf.apply(col("age"), col("height")).as("SUM")).show();
 
