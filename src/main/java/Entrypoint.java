@@ -4,6 +4,7 @@ import org.apache.spark.sql.SparkSession;
 import org.apache.spark.sql.api.java.UDF2;
 import org.apache.spark.sql.expressions.UserDefinedFunction;
 import org.apache.spark.sql.types.DataTypes;
+import org.apache.spark.sql.types.StructType;
 
 import java.nio.file.Path;
 
@@ -18,17 +19,23 @@ public class Entrypoint {
                 .appName("Java Spark SQL basic example")
                 .getOrCreate();
 
-        Dataset<Row> df = spark.read().json("people.json");
+        StructType schema = new StructType()
+                .add("name", DataTypes.StringType)
+                .add("age", DataTypes.IntegerType)
+                .add("height", DataTypes.IntegerType);
+
+        Dataset<Row> df = spark.read().schema(schema).json("people.json");
         df.createOrReplaceTempView("PEOPLE");
         df.show();
         df.printSchema();
 
-        WasmFunctionSupplier.init(Path.of("udf.wat"), "add");
+        WasmFunctionSupplier.init(Path.of("functions/c/udf_c.wasm"), "add");
+        //        WasmFunctionSupplier.init(Path.of("udf.wat"), "add");
 
         UserDefinedFunction myUdf = udf(
-                (UDF2<Long, Long, Long>)
-                        (a, b) -> (Long) WasmFunctionSupplier.get().apply(a, b)[0],
-                DataTypes.LongType);
+                (UDF2<Integer, Integer, Integer>)
+                        (a, b) -> (Integer) WasmFunctionSupplier.get().apply(a, b)[0],
+                DataTypes.IntegerType);
 
         df.select(col("name"), myUdf.apply(col("age"), col("height")).as("SUM")).show();
 
