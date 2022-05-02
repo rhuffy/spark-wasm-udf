@@ -34,12 +34,12 @@ public class Entrypoint {
         byte[] wasmBytes = new Module(Files.readAllBytes(Path.of("udf.wat"))).serialize();
 
         UserDefinedFunction myUdf = udf(
-                (UDF2<Long, Long, Long>)
-                        (a, b) -> {
-                                Module module = Module.deserialize(wasmBytes);
-                                return (Long) module.instantiate().exports.getFunction("add").apply(a, b)[0];
-                        },
-                DataTypes.LongType);
+                (UDF2<Integer, Integer, Integer>) (a, b) -> {
+                    Module module = Module.deserialize(wasmBytes);
+                    return (Integer)
+                            module.instantiate().exports.getFunction("add").apply(a, b)[0];
+                },
+                DataTypes.IntegerType);
 
         df.select(col("name"), myUdf.apply(col("age"), col("height")).as("SUM")).show();
 
