@@ -1,3 +1,7 @@
+import axios from "axios";
+
+const URI = "https://localhost:8000";
+
 export interface IFile {
   id: string;
   name: string;
@@ -14,6 +18,10 @@ export interface IExecutionRequest {
   functionName: string;
   inputColumnNames: string[];
   outputColumnName?: string;
+}
+
+export interface IExecutionResponse {
+  resultPath: string;
 }
 
 export enum IOperation {
@@ -36,13 +44,12 @@ export function getFiles(): Promise<IFile[]> {
 }
 
 export function getSchemaForFile(file: IFile): Promise<ISchemaEntry[]> {
-  return Promise.resolve([
-    { name: "name", type: ISparkDataType.STRING },
-    { name: "age", type: ISparkDataType.INTEGER },
-    { name: "height", type: ISparkDataType.INTEGER },
-  ]);
+  return await axios.get(`${URI}/columns`);
 }
 
-export async function requestExecution(request: IExecutionRequest) {
-  console.log(request);
+export async function requestExecution(
+  request: IExecutionRequest
+): Promise<IExecutionResponse> {
+  console.log("ExecutionRequest", request);
+  return (await axios.post(`${URI}/execute`, request)).data;
 }
