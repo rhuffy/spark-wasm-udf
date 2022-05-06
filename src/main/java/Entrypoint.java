@@ -1,3 +1,7 @@
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.CommandLineParser;
+import org.apache.commons.cli.DefaultParser;
+import org.apache.commons.cli.Options;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
@@ -16,22 +20,40 @@ import static org.apache.spark.sql.functions.udf;
 public class Entrypoint {
     public static void main(String[] args) throws Exception {
 
+        System.out.println(StructType.fromDDL("name STRING, age INT"));
+
+
+        Options options = new Options();
+
+//        options.addRequiredOption("w", "wasm", true, "path to WASM module");
+        options.addRequiredOption("c", "c", true, "path to C file");
+        options.addRequiredOption("d", "data", true, "path to data file");
+        options.addRequiredOption("s", "schema", true, "path to schema file");
+        options.addRequiredOption("e", "emsdk", true, "path to EMSDK");
+
+        CommandLineParser parser = new DefaultParser();
+        CommandLine cmd = parser.parse( options, args);
+//        Path wasmPath = Path.of(cmd.getOptionValue("wasm"));
+        Path cPath = Path.of(cmd.getOptionValue("c"));
+        Path dataPath = Path.of(cmd.getOptionValue("data"));
+        Path schemaPath = Path.of(cmd.getOptionValue("schema"));
+        Path emsdkPath = Path.of(cmd.getOptionValue("emsdk"));
+
+        Path wasmPath = WasmCompiler.compileC(cPath, emsdkPath);
+
+        StructType schema = StructType.fromDDL(Files.readString(schemaPath));
+
         SparkSession spark = SparkSession.builder()
                 .master("local")
                 .appName("Java Spark SQL basic example")
                 .getOrCreate();
 
-        StructType schema = new StructType()
-                .add("name", DataTypes.StringType)
-                .add("age", DataTypes.IntegerType)
-                .add("height", DataTypes.IntegerType);
-
-        Dataset<Row> df = spark.read().schema(schema).json("people.json");
+        Dataset<Row> df = spark.read().schema(schema).csv(dataPath.toString());
         df.createOrReplaceTempView("PEOPLE");
         df.show();
         df.printSchema();
 
-        byte[] wasmBytes = new Module(Files.readAllBytes(Path.of("udf.wat"))).serialize();
+        byte[] wasmBytes = new Module(Files.readAllBytes(wasmPath)).serialize();
 
         UserDefinedFunction myUdf = udf(
                 (UDF2<Integer, Integer, Integer>) (a, b) -> {

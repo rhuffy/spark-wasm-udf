@@ -1,3 +1,3 @@
 #!/bin/sh
 
-emcc --no-entry udf.c -o udf_c.wasm
+emcc --no-entry udf.c -o udf.wasm

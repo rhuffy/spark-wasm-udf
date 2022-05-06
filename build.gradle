@@ -1,3 +1,5 @@
+import org.apache.tools.ant.taskdefs.condition.Os
+
 plugins {
     id 'application'
     id 'java'
@@ -6,7 +8,9 @@ plugins {
 group 'org.example'
 version '1.0-SNAPSHOT'
 
-applicationDefaultJvmArgs = ['-Dos.arch=amd64']
+if(Os.isFamily(Os.FAMILY_MAC)) {
+    applicationDefaultJvmArgs = ['-Dos.arch=amd64']
+}
 
 application {
     mainClassName = "Entrypoint"
@@ -17,8 +21,14 @@ repositories {
 }
 
 dependencies {
-    implementation 'org.apache.spark:spark-sql_2.12:3.2.0'
-    implementation files('libs/wasmer-jni-amd64-darwin-0.3.0.jar')
+    implementation 'commons-cli:commons-cli:1.5.0'
+    implementation 'org.apache.spark:spark-sql_2.12:3.2.1'
+    implementation 'org.json:json:20220320'
+    if(Os.isFamily(Os.FAMILY_MAC)) {
+        implementation files('libs/wasmer-jni-amd64-darwin-0.3.0.jar')
+    } else {
+        implementation files('libs/wasmer-jni-amd64-linux-0.3.0.jar')
+    }
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.7.0'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.7.0'
 }
