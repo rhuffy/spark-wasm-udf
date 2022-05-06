@@ -29,7 +29,7 @@ public class Entrypoint {
         Optional<String> maybeOutputColumnName = Optional.ofNullable(cmd.getOptionValue("output"));
         Optional<String> maybeOutputColumnType = Optional.ofNullable(cmd.getOptionValue("outputType"));
 
-        Path wasmPath = WasmCompiler.compileC(cPath, emsdkPath);
+        Path wasmPath = WasmCompiler.compileC(cPath, emsdkPath, new String[]{functionName});
 
         StructType schema = StructType.fromDDL(Files.readString(schemaPath));
 
@@ -81,8 +81,7 @@ public class Entrypoint {
 
 
         CommandLineParser parser = new DefaultParser();
-        CommandLine cmd = parser.parse( options, args);
-        return cmd;
+        return parser.parse( options, args);
     }
 
     private static Column[] columns(String[] names) {
