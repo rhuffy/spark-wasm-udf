@@ -12,6 +12,7 @@ import {
   requestExecution,
   IOperation,
   ISparkDataType,
+  requestExecutionResult,
 } from "./api";
 import CustomTable from "./CustomTable";
 
@@ -24,6 +25,9 @@ interface State {
   selectedOperation: IOperation;
   selectedOutputType: ISparkDataType | null;
   userFunctionName: string;
+  loadingExecution: boolean;
+  executionId: string | null;
+  executionData: any[];
 }
 
 class Home extends React.Component<Props, State> {
@@ -39,6 +43,9 @@ class Home extends React.Component<Props, State> {
       selectedOperation: IOperation.MAP,
       selectedOutputType: null,
       userFunctionName: "",
+      loadingExecution: false,
+      executionId: null,
+      executionData: [],
     };
   }
 
@@ -48,10 +55,11 @@ class Home extends React.Component<Props, State> {
 
   handleExecute = async () => {
     if (this.editor && this.state.selectedFileName) {
-      await requestExecution({
+      this.setState({ loadingExecution: true });
+      const res = await requestExecution({
         program: this.editor.getValue(),
         data: this.state.selectedFileName,
-        operation: IOperation.MAP,
+        operation: this.state.selectedOperation,
         function_name: this.state.userFunctionName,
         input_column_names: this.state.selectedColumns.map(
           (column) => column.name
@@ -59,6 +67,18 @@ class Home extends React.Component<Props, State> {
         output_column_name: `${this.state.userFunctionName}_RESULT`,
         output_column_type: this.state.selectedOutputType ?? undefined,
       });
+      this.setState({ executionId: res.id });
+      const poller = setInterval(async () => {
+        if (this.state.executionId) {
+          const res = await requestExecutionResult({
+            id: this.state.executionId,
+          });
+          if (res.data) {
+            this.setState({ executionData: res.data, loadingExecution: false });
+            clearInterval(poller);
+          }
+        }
+      }, 1000);
     }
   };
 
@@ -174,9 +194,17 @@ class Home extends React.Component<Props, State> {
     return a + b;
 }`}
         />
-        <Button text={"Execute Function"} onClick={this.handleExecute} />
+        <Button
+          text={"Execute Function"}
+          loading={this.state.loadingExecution}
+          onClick={this.handleExecute}
+        />
         <br />
-        <CustomTable data={[]} />
+        <CustomTable
+          data={this.state.executionData}
+          loading={this.state.loadingExecution}
+          schema={this.state.columns}
+        />
       </>
     );
   }

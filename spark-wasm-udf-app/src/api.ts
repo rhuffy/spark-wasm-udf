@@ -23,7 +23,7 @@ export interface IExecutionRequest {
 }
 
 export interface IExecutionResponse {
-  resultPath: string;
+  id: string;
 }
 
 export interface IGetFilesResponse {
@@ -34,6 +34,14 @@ export interface IGetSchemaResponse {
   schema: ISchemaEntry[];
 }
 
+export interface IResultRequest {
+  id: string;
+}
+
+export interface IResultResponse {
+  data?: any[];
+}
+
 export enum IOperation {
   MAP = "MAP",
   FILTER = "FILTER",
@@ -42,7 +50,7 @@ export enum IOperation {
 export enum ISparkDataType {
   INTEGER = "INTEGER",
   FLOAT = "FLOAT",
-  STRING = "STRING",
+  // STRING = "STRING",
   BOOLEAN = "BOOLEAN",
 }
 
@@ -60,5 +68,16 @@ export async function requestExecution(
   request: IExecutionRequest
 ): Promise<IExecutionResponse> {
   console.log("ExecutionRequest", request);
-  return (await axios.post(`${URI}/execute`, request)).data;
+  const res = await axios.post(`${URI}/execute`, request);
+  console.log("ExecutionResponse", res.data);
+  return res.data;
+}
+
+export async function requestExecutionResult(
+  request: IResultRequest
+): Promise<IResultResponse> {
+  console.log("poll result", request);
+  const res = await axios.get(`${URI}/execute/${request.id}`);
+  console.log(res.data);
+  return res.data;
 }
