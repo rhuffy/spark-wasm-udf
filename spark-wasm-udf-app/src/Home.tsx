@@ -47,21 +47,24 @@ class Home extends React.Component<Props, State> {
   };
 
   handleExecute = async () => {
-    if (this.editor) {
+    if (this.editor && this.state.selectedFileName) {
       await requestExecution({
         program: this.editor.getValue(),
+        data: this.state.selectedFileName,
         operation: IOperation.MAP,
-        functionName: this.state.userFunctionName,
-        inputColumnNames: this.state.selectedColumns.map(
+        function_name: this.state.userFunctionName,
+        input_column_names: this.state.selectedColumns.map(
           (column) => column.name
         ),
+        output_column_name: `${this.state.userFunctionName}_RESULT`,
+        output_column_type: this.state.selectedOutputType ?? undefined,
       });
     }
   };
 
   loadFileNames = async () => {
-    const files = await getFiles();
-    this.setState({ files });
+    const res = await getFiles();
+    this.setState({ files: res.names.map((name) => ({ name })) });
   };
   componentDidMount() {
     this.loadFileNames();
@@ -81,10 +84,10 @@ class Home extends React.Component<Props, State> {
               <MenuItem text={file.name} onClick={handleClick} />
             )}
             onItemSelect={async (item) => {
-              const columns = await getSchemaForFile(item);
+              const res = await getSchemaForFile(item);
               this.setState({
-                columns,
-                selectedColumns: columns,
+                columns: res.schema,
+                selectedColumns: [],
                 selectedFileName: item.name,
               });
             }}
@@ -104,11 +107,13 @@ class Home extends React.Component<Props, State> {
                 onClick={handleClick}
               />
             )}
-            onItemSelect={(item) =>
-              this.setState({
-                selectedColumns: [...this.state.selectedColumns, item],
-              })
-            }
+            onItemSelect={(item) => {
+              if (!this.state.selectedColumns.includes(item)) {
+                this.setState({
+                  selectedColumns: [...this.state.selectedColumns, item],
+                });
+              }
+            }}
             onRemove={(item) =>
               this.setState({
                 selectedColumns: this.state.selectedColumns.filter(
@@ -165,9 +170,7 @@ class Home extends React.Component<Props, State> {
           height="50vh"
           defaultLanguage="c"
           onMount={this.handleEditorDidMount}
-          defaultValue={`#include <emscripten/emscripten.h>
-
-int add(int a, int b) {
+          defaultValue={`int add(int a, int b) {
     return a + b;
 }`}
         />

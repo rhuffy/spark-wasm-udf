@@ -1,9 +1,9 @@
 import axios from "axios";
 
-const URI = "https://localhost:8000";
+const URI = "http://localhost:5000/api";
 
 export interface IFile {
-  id: string;
+  // id: string;
   name: string;
 }
 
@@ -14,14 +14,24 @@ export interface ISchemaEntry {
 
 export interface IExecutionRequest {
   program: string;
+  data: string;
   operation: IOperation;
-  functionName: string;
-  inputColumnNames: string[];
-  outputColumnName?: string;
+  function_name: string;
+  input_column_names: string[];
+  output_column_name?: string;
+  output_column_type?: ISparkDataType;
 }
 
 export interface IExecutionResponse {
   resultPath: string;
+}
+
+export interface IGetFilesResponse {
+  names: string[];
+}
+
+export interface IGetSchemaResponse {
+  schema: ISchemaEntry[];
 }
 
 export enum IOperation {
@@ -36,15 +46,14 @@ export enum ISparkDataType {
   BOOLEAN = "BOOLEAN",
 }
 
-export function getFiles(): Promise<IFile[]> {
-  return Promise.resolve([
-    { id: "1", name: "data1.csv" },
-    { id: "2", name: "data2.csv" },
-  ]);
+export async function getFiles(): Promise<IGetFilesResponse> {
+  return (await axios.get(`${URI}/files`)).data;
 }
 
-export function getSchemaForFile(file: IFile): Promise<ISchemaEntry[]> {
-  return await axios.get(`${URI}/columns`);
+export async function getSchemaForFile(
+  file: IFile
+): Promise<IGetSchemaResponse> {
+  return (await axios.get(`${URI}/files/${file.name}/schema`)).data;
 }
 
 export async function requestExecution(
