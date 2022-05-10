@@ -20,21 +20,15 @@ public class Entrypoint {
     private static final Path USER_DATA_PATH = Path.of("server/static/user_data");
 
     public static void main(String[] args) throws Exception {
-        for(String a : args) {
-            System.out.println(a);
-        }
         CommandLine cmd = parseArgs(args);
-        Path cPath = Path.of(cmd.getOptionValue("c"));
+        Path wasmPath = Path.of(cmd.getOptionValue("wasm"));
         Path dataPath = USER_DATA_PATH.resolve(cmd.getOptionValue("data"));
         Path schemaPath = USER_DATA_PATH.resolve(cmd.getOptionValue("schema"));
-        Path emsdkPath = Path.of(cmd.getOptionValue("emsdk"));
         Operation operation = Operation.from(cmd.getOptionValue("operation"));
         String functionName = cmd.getOptionValue("function");
         String[] inputColumnNames = cmd.getOptionValue("input").split(",");
         Optional<String> maybeOutputColumnName = Optional.ofNullable(cmd.getOptionValue("output"));
         Optional<String> maybeOutputColumnType = Optional.ofNullable(cmd.getOptionValue("outputType"));
-
-        Path wasmPath = WasmCompiler.compileC(cPath, emsdkPath, functionName);
 
         StructType schema = StructType.fromDDL(Files.readString(schemaPath));
 
@@ -45,8 +39,6 @@ public class Entrypoint {
 
         Dataset<Row> df = spark.read().schema(schema).csv(dataPath.toString());
         df.createOrReplaceTempView("VIEW");
-        df.show();
-        df.printSchema();
 
         byte[] wasmBytes = new Module(Files.readAllBytes(wasmPath)).serialize();
 
@@ -56,16 +48,14 @@ public class Entrypoint {
                 df = df.select(col("*"), myUdf.apply(columns(inputColumnNames)).as(maybeOutputColumnName.orElseThrow()));
             }
                 break;
-            case FILTER:
-                 {
+            case FILTER: {
                 UserDefinedFunction myUdf = UdfFactory.createFilterFunction(wasmBytes, functionName, inputColumnNames);
-                 df = df.select(col("*")).where(myUdf.apply(columns(inputColumnNames)));
-                 }
+                df = df.select(col("*")).filter(myUdf.apply(columns(inputColumnNames)));
+            }
                 break;
-
         }
-        df.show();
-        df.write().csv(FilenameUtils.removeExtension(dataPath.toString()) + "_" + UUID.randomUUID());
+        Path output = dataPath.resolveSibling(FilenameUtils.getBaseName(wasmPath.toString()));
+        df.write().json(output.toString());
 
         spark.stop();
     }
@@ -73,11 +63,10 @@ public class Entrypoint {
     private static CommandLine parseArgs(String[] args) throws ParseException {
         Options options = new Options();
 
-        options.addRequiredOption("c", "c", true, "path to C file");
+        options.addRequiredOption("w", "wasm", true, "path to wasm file");
         options.addRequiredOption("d", "data", true, "path to data file");
         options.addRequiredOption("s", "schema", true, "path to schema file");
         options.addRequiredOption("x", "operation", true, "operation (MAP|FILTER)");
-        options.addRequiredOption("e", "emsdk", true, "path to EMSDK");
         options.addRequiredOption("f", "function", true, "function name");
         options.addRequiredOption("i", "input", true, "comma-separated input column names");
         options.addOption("o", "output", true, "name of output column when using MAP");

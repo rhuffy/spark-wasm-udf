@@ -22,25 +22,41 @@ public class UdfFactory {
                 return udf(
                         (a1) -> {
                             Module module = Module.deserialize(wasmBytes);
-                            return module.instantiate().exports.getFunction(functionName).apply(a1)[0];
+                            Object result = module.instantiate().exports.getFunction(functionName).apply(a1)[0];
+                            if (outputDataType.sameType(DataTypes.BooleanType)) {
+                                return handleCBool(result);
+                            }
+                            return result;
                         },
                         outputDataType);
             case 2:
                 return udf(
                         (a1, a2) -> {
                             Module module = Module.deserialize(wasmBytes);
-                            return module.instantiate().exports.getFunction(functionName).apply(a1, a2)[0];
+                            Object result = module.instantiate().exports.getFunction(functionName).apply(a1, a2)[0];
+                            if (outputDataType.sameType(DataTypes.BooleanType)) {
+                                return handleCBool(result);
+                            }
+                            return result;
                         },
                         outputDataType);
             case 3:
                 return udf(
                         (a1, a2, a3) -> {
                             Module module = Module.deserialize(wasmBytes);
-                            return module.instantiate().exports.getFunction(functionName).apply(a1, a2, a3)[0];
+                            Object result = module.instantiate().exports.getFunction(functionName).apply(a1, a2, a3)[0];
+                            if (outputDataType.sameType(DataTypes.BooleanType)) {
+                                return handleCBool(result);
+                            }
+                            return result;
                         },
                         outputDataType);
             default:
                 throw new RuntimeException("UDFs with " + inputColumnNames.length + " args are not supported.");
         }
+    }
+
+    private static boolean handleCBool(Object obj) {
+        return ((Integer) obj) != 0;
     }
 }
