@@ -17,11 +17,16 @@ import static org.apache.spark.sql.functions.col;
 import static org.apache.spark.sql.functions.udf;
 
 public class Entrypoint {
+    private static final Path USER_DATA_PATH = Path.of("server/static/user_data");
+
     public static void main(String[] args) throws Exception {
+        for(String a : args) {
+            System.out.println(a);
+        }
         CommandLine cmd = parseArgs(args);
         Path cPath = Path.of(cmd.getOptionValue("c"));
-        Path dataPath = Path.of(cmd.getOptionValue("data"));
-        Path schemaPath = Path.of(cmd.getOptionValue("schema"));
+        Path dataPath = USER_DATA_PATH.resolve(cmd.getOptionValue("data"));
+        Path schemaPath = USER_DATA_PATH.resolve(cmd.getOptionValue("schema"));
         Path emsdkPath = Path.of(cmd.getOptionValue("emsdk"));
         Operation operation = Operation.from(cmd.getOptionValue("operation"));
         String functionName = cmd.getOptionValue("function");
@@ -29,7 +34,7 @@ public class Entrypoint {
         Optional<String> maybeOutputColumnName = Optional.ofNullable(cmd.getOptionValue("output"));
         Optional<String> maybeOutputColumnType = Optional.ofNullable(cmd.getOptionValue("outputType"));
 
-        Path wasmPath = WasmCompiler.compileC(cPath, emsdkPath, new String[]{functionName});
+        Path wasmPath = WasmCompiler.compileC(cPath, emsdkPath, functionName);
 
         StructType schema = StructType.fromDDL(Files.readString(schemaPath));
 
@@ -47,7 +52,6 @@ public class Entrypoint {
 
         switch (operation) {
             case MAP: {
-                System.out.println("run map");
                 UserDefinedFunction myUdf = UdfFactory.createMapFunction(wasmBytes, functionName, inputColumnNames, maybeOutputColumnType.orElseThrow());
                 df = df.select(col("*"), myUdf.apply(columns(inputColumnNames)).as(maybeOutputColumnName.orElseThrow()));
             }
