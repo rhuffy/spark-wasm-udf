@@ -28,13 +28,14 @@ def execute(args):
     program_path = write_program(program, exec_id)
     wasm_path = compile_c(program_path, function_name)
     program_args = ["--wasm", f'server/{wasm_path}',
-                 "--data", data_path,
-                 "--schema", get_schema_path(data_path),
-                 "--operation", operation,
-                 "--function", function_name,
-                 "--input", list_as_csv(input_column_names)]
+                    "--data", data_path,
+                    "--schema", get_schema_path(data_path),
+                    "--operation", operation,
+                    "--function", function_name,
+                    "--input", list_as_csv(input_column_names)]
     if output_column_name is not None:
-        program_args.extend(["--output", output_column_name, "--outputType", output_column_type])
+        program_args.extend(["--output", output_column_name,
+                            "--outputType", output_column_type])
     args_str = ' '.join(program_args)
     gradle_command = ' '.join(['./gradlew', 'run', f'--args=\"{args_str}\"'])
 
@@ -64,8 +65,12 @@ def get_result_if_exists(id):
         for name in glob(f'{USER_DATA_PATH}/{id}/part*json'):
             data = []
             with open(name, 'r') as f:
+                count = 0
                 for line in f:
                     data.append(json.loads(line))
+                    count += 1
+                    if count > 200:
+                        break
             return data
 
 
