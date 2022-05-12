@@ -107,6 +107,7 @@ class Home extends React.Component<Props, State> {
               const res = await getSchemaForFile(item);
               this.setState({
                 columns: res.schema,
+                executionData: [],
                 selectedColumns: [],
                 selectedFileName: item.name,
               });
