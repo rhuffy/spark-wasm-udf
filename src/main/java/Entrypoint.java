@@ -1,20 +1,18 @@
 import org.apache.commons.cli.*;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.spark.sql.*;
-import org.apache.spark.sql.api.java.UDF2;
 import org.apache.spark.sql.expressions.UserDefinedFunction;
-import org.apache.spark.sql.types.DataTypes;
 import org.apache.spark.sql.types.StructType;
 import org.wasmer.Module;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.Optional;
-import java.util.UUID;
 
 import static org.apache.spark.sql.functions.col;
-import static org.apache.spark.sql.functions.udf;
 
 public class Entrypoint {
     private static final Path USER_DATA_PATH = Path.of("server/static/user_data");
@@ -37,27 +35,30 @@ public class Entrypoint {
                 .appName("Java Spark SQL basic example")
                 .getOrCreate();
 
+        Instant start = Instant.now();
         Dataset<Row> df = spark.read().schema(schema).csv(dataPath.toString());
-        df.createOrReplaceTempView("VIEW");
 
-        byte[] wasmBytes = new Module(Files.readAllBytes(wasmPath)).serialize();
+        Module module = new Module(Files.readAllBytes(wasmPath));
+        InstanceWrapper.set(module.instantiate());
 
         switch (operation) {
             case MAP: {
-                UserDefinedFunction myUdf = UdfFactory.createMapFunction(wasmBytes, functionName, inputColumnNames, maybeOutputColumnType.orElseThrow());
+                UserDefinedFunction myUdf = UdfFactory.createMapFunction(functionName, inputColumnNames, maybeOutputColumnType.orElseThrow());
                 df = df.select(col("*"), myUdf.apply(columns(inputColumnNames)).as(maybeOutputColumnName.orElseThrow()));
             }
-                break;
+            break;
             case FILTER: {
-                UserDefinedFunction myUdf = UdfFactory.createFilterFunction(wasmBytes, functionName, inputColumnNames);
+                UserDefinedFunction myUdf = UdfFactory.createFilterFunction(functionName, inputColumnNames);
                 df = df.select(col("*")).filter(myUdf.apply(columns(inputColumnNames)));
             }
-                break;
+            break;
         }
         Path output = dataPath.resolveSibling(FilenameUtils.getBaseName(wasmPath.toString()));
         df.write().json(output.toString());
 
         spark.stop();
+        Instant finish = Instant.now();
+        System.err.println("Execution time: " + String.valueOf(Duration.between(start, finish).toMillis()) + "ms");
     }
 
     private static CommandLine parseArgs(String[] args) throws ParseException {

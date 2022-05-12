@@ -1,0 +1,1 @@
+id INT,firstName STRING,lastName STRING,balance INT,rate FLOAT,email STRING

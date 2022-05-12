@@ -12,6 +12,8 @@ if(Os.isFamily(Os.FAMILY_MAC)) {
     applicationDefaultJvmArgs = ['-Dos.arch=amd64']
 }
 
+applicationDefaultJvmArgs = ["-Xms512m", "-Xmx16g"]
+
 application {
     mainClassName = "Entrypoint"
 }
