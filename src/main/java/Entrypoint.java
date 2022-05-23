@@ -39,7 +39,7 @@ public class Entrypoint {
         Dataset<Row> df = spark.read().schema(schema).csv(dataPath.toString());
 
         Module module = new Module(Files.readAllBytes(wasmPath));
-        InstanceWrapper.set(module.instantiate());
+        FunctionWrapper.set(module.instantiate().exports.getFunction(functionName));
 
         switch (operation) {
             case MAP: {
