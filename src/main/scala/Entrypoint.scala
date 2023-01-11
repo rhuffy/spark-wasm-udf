@@ -7,8 +7,10 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.types.StructType
+import org.wasmer.Memory
 import org.wasmer.Module
 import org.wasmer.Instance
+import org.wasmer.exports.Function
 
 import java.nio.{ByteBuffer, CharBuffer, DoubleBuffer, FloatBuffer, IntBuffer, LongBuffer, ShortBuffer}
 import java.nio.file.Files
@@ -54,24 +56,14 @@ object Entrypoint {
       val input0 = ByteBuffer.allocate(size * 4)
       val input1 = ByteBuffer.allocate(size * 4)
 
-      val input0Ints = input0.asIntBuffer
-      val input1Ints = input1.asIntBuffer
+      val input0Addr = callMalloc(mallocFunction, size)
+      val input1Addr = callMalloc(mallocFunction, size)
+      val outputAddr = callMalloc(mallocFunction, size)
 
-      iterator.zipWithIndex.foreach{case (row, i) => {
-        input0Ints.position(i)
-        input0Ints.put(row.getInt(0))
-        input1Ints.position(i)
-        input1Ints.put(row.getInt(1))
-      }}
-      val input0Addr = mallocFunction.apply(size.asInstanceOf[Object])(0).asInstanceOf[Int]
-      val input1Addr = mallocFunction.apply(size.asInstanceOf[Object])(0).asInstanceOf[Int]
-      val outputAddr = mallocFunction.apply(size.asInstanceOf[Object])(0).asInstanceOf[Int]
+      copyPartitionToBuffers(iterator, input0, input1)
 
-      val memoryBuffer = memory.buffer
-      memoryBuffer.position(input0Addr)
-      memoryBuffer.put(input0.array)
-      memoryBuffer.position(input1Addr)
-      memoryBuffer.put(input1.array)
+      putBytesInMemory(input0, input0Addr, memory)
+      putBytesInMemory(input1, input1Addr, memory)
 
       execFunction.apply(
         input0Addr.asInstanceOf[Object],
@@ -80,11 +72,10 @@ object Entrypoint {
         size.asInstanceOf[Object]
       )
 
-      val outputBytes = new Array[Byte](size * 4)
-      memoryBuffer.position(outputAddr)
-      memoryBuffer.get(outputBytes, 0, size * 4)
+      val outputIntBuffer = getOutputFromMemory(outputAddr, size, memory)
 
-      val outputIntBuffer = ByteBuffer.wrap(outputBytes).asIntBuffer
+      val input0Ints = input0.asIntBuffer
+      val input1Ints = input1.asIntBuffer
 
       (0 to size-1).map { i =>
         RowFactory.create(
@@ -101,6 +92,36 @@ object Entrypoint {
     spark.stop()
     val finish = Instant.now
     println("Execution time: " + String.valueOf(Duration.between(start, finish).toMillis) + "ms")
+  }
+
+  private def callMalloc(mallocFunction: Function, size: Int): Int = {
+    mallocFunction.apply(size.asInstanceOf[Object])(0).asInstanceOf[Int]
+  }
+
+  private def copyPartitionToBuffers(iterator: Iterator[Row], input0: ByteBuffer, input1: ByteBuffer): Unit = {
+    val input0Ints = input0.asIntBuffer
+    val input1Ints = input1.asIntBuffer
+
+    iterator.zipWithIndex.foreach{case (row, i) => {
+      input0Ints.position(i)
+      input0Ints.put(row.getInt(0))
+      input1Ints.position(i)
+      input1Ints.put(row.getInt(1))
+    }}
+  }
+
+  private def putBytesInMemory(byteBuffer: ByteBuffer, addr: Int, memory: Memory): Unit = {
+    val memoryBuffer = memory.buffer
+    memoryBuffer.position(addr)
+    memoryBuffer.put(byteBuffer.array)
+  }
+
+  private def getOutputFromMemory(addr: Int, size: Int, memory: Memory): IntBuffer = {
+    val memoryBuffer = memory.buffer
+    val outputBytes = new Array[Byte](size * 4)
+    memoryBuffer.position(addr)
+    memoryBuffer.get(outputBytes, 0, size * 4)
+    ByteBuffer.wrap(outputBytes).asIntBuffer
   }
 
   @throws[ParseException]
