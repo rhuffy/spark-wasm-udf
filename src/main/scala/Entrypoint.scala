@@ -58,7 +58,6 @@ object Entrypoint {
       val input1Ints = input1.asIntBuffer
 
       iterator.zipWithIndex.foreach{case (row, i) => {
-        // println(row, row.getInt(0), row.getInt(1), i)
         input0Ints.position(i)
         input0Ints.put(row.getInt(0))
         input1Ints.position(i)
@@ -67,11 +66,6 @@ object Entrypoint {
       val input0Addr = mallocFunction.apply(size.asInstanceOf[Object])(0).asInstanceOf[Int]
       val input1Addr = mallocFunction.apply(size.asInstanceOf[Object])(0).asInstanceOf[Int]
       val outputAddr = mallocFunction.apply(size.asInstanceOf[Object])(0).asInstanceOf[Int]
-
-      println(size)
-      println(memory.buffer.limit())
-      println(input0Addr)
-      println(input0.getInt(0))
 
       val memoryBuffer = memory.buffer
       memoryBuffer.position(input0Addr)
