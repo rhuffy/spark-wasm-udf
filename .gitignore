@@ -6,3 +6,4 @@ bin
 libs
 venv
 *.parquet
+output_*

@@ -37,7 +37,7 @@ object Entrypoint {
     var schema = StructType.fromDDL(Files.readString(schemaPath))
     val spark = SparkSession.builder.master("local").appName("Java Spark SQL basic example").getOrCreate
     val start = Instant.now
-    val df = spark.read.schema(schema).csv(dataPath.toString).repartition(1000)
+    val df = spark.read.schema(schema).csv(dataPath.toString).repartition(64)
 
     val wasmBytes = Files.readAllBytes(wasmPath)
 
@@ -89,7 +89,7 @@ object Entrypoint {
     })(RowEncoder(schema))
 
     // val output = dataPath.resolveSibling(FilenameUtils.getBaseName(wasmPath.toString))
-    output_df.repartition(1).write.format("parquet").save(LocalDateTime.now.format(DateTimeFormatter.ofPattern("YYYYMMdd_HHmmss")) + ".parquet")
+    output_df.repartition(1).write.format("csv").save("output_" + LocalDateTime.now.format(DateTimeFormatter.ofPattern("YYYYMMdd_HHmmss")) + ".csv")
     output_df.show()
     spark.stop()
     val finish = Instant.now
