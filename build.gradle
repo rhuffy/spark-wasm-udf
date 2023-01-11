@@ -2,7 +2,6 @@ import org.apache.tools.ant.taskdefs.condition.Os
 
 plugins {
     id 'application'
-    id 'java'
     id 'scala'
 }
 
