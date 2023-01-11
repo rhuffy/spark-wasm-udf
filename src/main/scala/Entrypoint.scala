@@ -17,6 +17,8 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Duration
 import java.time.Instant
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 
 object Entrypoint {
   private val USER_DATA_PATH = Path.of("server/static/user_data")
@@ -47,7 +49,7 @@ object Entrypoint {
 
     val size = df.mapPartitions(it => Iterator(it.size)).first
 
-    val ds = df.mapPartitions(iterator => {
+    val output_df = df.mapPartitions(iterator => {
       val instance = new Instance(wasmBytes)
       val memory = instance.exports.getMemory("memory")
       val mallocFunction = instance.exports.getFunction("malloc")
@@ -86,9 +88,9 @@ object Entrypoint {
       }.toIterator
     })(RowEncoder(schema))
 
-//    val output = dataPath.resolveSibling(FilenameUtils.getBaseName(wasmPath.toString))
-//    ds.write.json(output.toString)
-    ds.toDF().show()
+    // val output = dataPath.resolveSibling(FilenameUtils.getBaseName(wasmPath.toString))
+    output_df.repartition(1).write.format("parquet").save(LocalDateTime.now.format(DateTimeFormatter.ofPattern("YYYYMMdd_HHmmss")) + ".parquet")
+    output_df.show()
     spark.stop()
     val finish = Instant.now
     println("Execution time: " + String.valueOf(Duration.between(start, finish).toMillis) + "ms")
