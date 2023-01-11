@@ -33,56 +33,24 @@ object Entrypoint {
     var schema = StructType.fromDDL(Files.readString(schemaPath))
     val spark = SparkSession.builder.master("local").appName("Java Spark SQL basic example").getOrCreate
     val start = Instant.now
-    val df = spark.read.schema(schema).csv(dataPath.toString)
+    val df = spark.read.schema(schema).csv(dataPath.toString).repartition(1000)
 
     val wasmBytes = Files.readAllBytes(wasmPath)
-//    val module = new Module(wasmBytes)
-//    val globalInstance = module.instantiate
-
-    /*
-    val memory = globalInstance.exports.getMemory("memory")
-    val mallocFunction = globalInstance.exports.getFunction("malloc")
-    val execFunction = globalInstance.exports.getFunction("exec")
-
-    val size = 1
-
-    val input0Addr = mallocFunction.apply(size.asInstanceOf[Object])(0).asInstanceOf[Int]
-    val input1Addr = mallocFunction.apply(size.asInstanceOf[Object])(0).asInstanceOf[Int]
-    val outputAddr = mallocFunction.apply(size.asInstanceOf[Object])(0).asInstanceOf[Int]
-
-    val memoryBuffer = memory.buffer
-    memoryBuffer.position(input0Addr)
-    memoryBuffer.putInt(1)
-    memoryBuffer.position(input1Addr)
-    memoryBuffer.putInt(2)
-
-    execFunction.apply(
-      input0Addr.asInstanceOf[Object],
-      input1Addr.asInstanceOf[Object],
-      outputAddr.asInstanceOf[Object],
-      size.asInstanceOf[Object]
-    )
-
-    memoryBuffer.position(outputAddr)
-    val intBuffer = memoryBuffer.asIntBuffer()
-    println(intBuffer.get(0))
-
-    */
 
     if (maybeOutputColumnName.nonEmpty) {
       schema = schema.add(maybeOutputColumnName.get, maybeOutputColumnType.get)
     }
 
-//    InstanceWrapper.set(globalInstance)
-
     import spark.implicits._
-    val ds = df.repartition(1000).mapPartitions(iterator => {
+
+    val size = df.mapPartitions(it => Iterator(it.size)).first
+
+    val ds = df.mapPartitions(iterator => {
       val instance = new Instance(wasmBytes)
       val memory = instance.exports.getMemory("memory")
       val mallocFunction = instance.exports.getFunction("malloc")
       val execFunction = instance.exports.getFunction("exec")
 
-      val size = 1000
       val input0 = ByteBuffer.allocate(size * 4)
       val input1 = ByteBuffer.allocate(size * 4)
 
@@ -90,7 +58,7 @@ object Entrypoint {
       val input1Ints = input1.asIntBuffer
 
       iterator.zipWithIndex.foreach{case (row, i) => {
-        println(row, row.getInt(0), row.getInt(1), i)
+        // println(row, row.getInt(0), row.getInt(1), i)
         input0Ints.position(i)
         input0Ints.put(row.getInt(0))
         input1Ints.position(i)
@@ -138,7 +106,7 @@ object Entrypoint {
     ds.toDF().show()
     spark.stop()
     val finish = Instant.now
-    System.err.println("Execution time: " + String.valueOf(Duration.between(start, finish).toMillis) + "ms")
+    println("Execution time: " + String.valueOf(Duration.between(start, finish).toMillis) + "ms")
   }
 
   @throws[ParseException]
